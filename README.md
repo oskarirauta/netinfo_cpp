@@ -1,9 +1,10 @@
+[![License:MIT](https://img.shields.io/badge/License-MIT-blue?style=plastic)](LICENSE)
+[![C++ CI build](../../actions/workflows/build.yml/badge.svg)](../../actions/workflows/build.yml)
+
 ### netinfo_cpp
 Library for querying ifconfig/ip like data from network interfaces on Linux
 
-[![C++ CI build](https://github.com/oskarirauta/netinfo_cpp/actions/workflows/build.yml/badge.svg)](https://github.com/oskarirauta/netinfo_cpp/actions/workflows/build.yml)
-
-### Usage
+## <sub>Usage</sub>
 There is only one function available that returns all available (all available for this, not all possibly available) details for every interface on system.
 It outputs a map<string, device> where key is name of interface.
 
@@ -16,12 +17,13 @@ You can omit IPv6 with make_var IPV6=0, like this:
 
 This works also when you have imported this library.
 
-### Depencies
+## <sub>Depencies</sub>
+
  - (throws_cpp)[https://github.com/oskarirauta/throws_cpp.git]
  - (common_cpp)[https://github.com/oskarirauta/common_cpp.git]
  - (logger_cpp)[https://github.com/oskarirauta/logger_cpp.git]
 
-### Importing
+## <sub>Importing</sub>
 
 It is relatively easy to import this library to your project; ofcourse it depends on your build system..
 
@@ -35,10 +37,8 @@ Paths can also be changed, there's a variable for that. Check Makefile.inc for e
 Provided example gives a great starter point for this.
 
 If your project uses something whole lot of different, like cmake, you are on your own.. Only build requirement
-is that your host is Linux and relatively new compiler, as this uses rather new c++ standard (c++20).
+is that your host is Linux and relatively new compiler, as this uses rather new c++ standard (c++17).
 
-### Examples
-Small example is provided
+## <sub>Example</sub>
 
-### License
-MIT
+Sample code is provided

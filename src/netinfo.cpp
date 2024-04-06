@@ -287,8 +287,8 @@ static std::string translate_encap(short e) { // if_arp.h
 static void proc_parse(std::map<std::string, netinfo::device>* devices) {
 
 	for ( const auto& [k, v] : *devices ) {
-		(*devices)[k].rx = netinfo::device::stats(0, 0, 0, 0);
-		(*devices)[k].tx = netinfo::device::stats(0, 0, 0, 0);
+		(*devices)[k].rx = { .bytes = 0, .packets = 0, .errors = 0, .dropped = 0 };
+		(*devices)[k].tx = { .bytes = 0, .packets = 0, .errors = 0, .dropped = 0 };
 	}
 
 	if ( !std::filesystem::exists("/proc/net/dev")) {
@@ -314,7 +314,7 @@ static void proc_parse(std::map<std::string, netinfo::device>* devices) {
 
 		line = common::trim_ws(line);
 
-		if ( line.starts_with("Inter-|") || line.starts_with("face |"))
+		if ( common::has_prefix(line, "Inter-|") || common::has_prefix(line, "face |"))
 			continue;
 
 		size_t pos;
@@ -323,8 +323,13 @@ static void proc_parse(std::map<std::string, netinfo::device>* devices) {
 
 		name = line.substr(0, pos);
 
+		#if __cplusplus >= 202002L
 		if ( !devices -> contains(name))
 			continue;
+		#else
+		if ( auto contains = devices -> find(name); contains == devices -> end())
+			continue;
+		#endif
 
 		line.erase(0, pos + 1);
 		line = clean_up(line);
@@ -348,8 +353,8 @@ static void proc_parse(std::map<std::string, netinfo::device>* devices) {
 
 		if ( vec.size() != 16 ) continue;
 
-		(*devices)[name].rx = netinfo::device::stats(to_number(vec[0]), to_number(vec[1]), to_number(vec[2]), to_number(vec[3]));
-		(*devices)[name].tx = netinfo::device::stats(to_number(vec[8]), to_number(vec[9]), to_number(vec[10]), to_number(vec[11]));
+		(*devices)[name].rx = { .bytes = to_number(vec[0]), .packets = to_number(vec[1]), .errors = to_number(vec[2]), .dropped = to_number(vec[3])};
+		(*devices)[name].tx = { .bytes = to_number(vec[8]), .packets = to_number(vec[9]), .errors = to_number(vec[10]), .dropped = to_number(vec[11])};
 	}
 
 	fd.close();
@@ -407,8 +412,15 @@ std::map<std::string, netinfo::device> netinfo::get_devices() {
 
 		} else ipv4.index = 0;
 
-		if ( devices.contains(name)) ifd = devices[name];
+		#if __cplusplus >= 202002L
+		if ( !devices.contains(name))
+			ifd = devices[name];
 		else ifd.name = name;
+		#else
+		if ( auto contains = devices.find(name); contains != devices.end())
+			ifd = devices[name];
+		else ifd.name = name;
+		#endif
 
 		if ( name.empty() || std::string(ifa -> ifa_name).empty()) {
 
