@@ -2,9 +2,11 @@
 [![C++ CI build](../../actions/workflows/build.yml/badge.svg)](../../actions/workflows/build.yml)
 
 ### netinfo_cpp
+
 Library for querying ifconfig/ip like data from network interfaces on Linux
 
 ## <sub>Usage</sub>
+
 There is only one function available that returns all available (all available for this, not all possibly available) details for every interface on system.
 It outputs a map<string, device> where key is name of interface.
 
