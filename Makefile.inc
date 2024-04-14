@@ -1,5 +1,5 @@
-NETINFO_DIR?=netinfo
-INCLUDES += -I./$(NETINFO_DIR)/include
+NETINFO_DIR?=./netinfo
+INCLUDES += -I$(NETINFO_DIR)/include
 
 IPV6?=1
 
