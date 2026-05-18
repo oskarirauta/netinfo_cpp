@@ -165,9 +165,9 @@ bool flags_is_empty(const std::map<unsigned long int, netinfo::flag>& flags) {
 
 	for ( const auto& [k, v] : flags )
 		if ( v.active )
-			return true;
+			return false;
 
-	return false;
+	return true;
 }
 
 void clear_flags(netinfo::device *ifd) {
@@ -390,7 +390,7 @@ std::map<std::string, netinfo::device> netinfo::get_devices() {
 
 			if ( name.size() > pos + 1 && std::isdigit(name[pos + 1])) {
 
-				std::string idx = name.substr(pos + 1, sizeof(name) - pos);
+				std::string idx = name.substr(pos + 1);
 				if ( idx.find_first_not_of("1234567890") != std::string::npos ) {
 
 					logger::error["netinfo"] << "index parse failure from '" << name << "'" << std::endl;
@@ -658,8 +658,8 @@ std::ostream& operator <<(std::ostream& os, const netinfo::device& d) {
 	os << "  TX bytes: " << d.tx.bytes;
 
 	if ( double gib = d.tx.GiB(); gib > 0 ) os << " (" << std::setprecision(1) << std::fixed << gib << " GiB)";
-	else if ( double mib = d.rx.MiB(); mib > 0 ) os << " (" << std::setprecision(1) << std::fixed << mib << " MiB)";
-	else os << " (" << (unsigned long)d.rx.KiB() << " KiB)";
+	else if ( double mib = d.tx.MiB(); mib > 0 ) os << " (" << std::setprecision(1) << std::fixed << mib << " MiB)";
+	else os << " (" << (unsigned long)d.tx.KiB() << " KiB)";
 
 	return os;
 }
