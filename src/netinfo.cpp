@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <utility>
 #include <fstream>
+#include <cstdint>
 #include <cstring>
+#include <iomanip>
 #include <cmath>
 
 #include <netdb.h>
@@ -70,6 +72,28 @@ double netinfo::device::stats::GiB() const {
 	return common::to_GiB(this -> bytes);
 }
 
+bool netinfo::device::up() const {
+
+	return this -> operstate == "UP";
+}
+
+bool netinfo::device::has_flag(unsigned long int id) const {
+
+	auto it = this -> flags.find(id);
+	return it != this -> flags.end() && it -> second.active;
+}
+
+bool netinfo::device::has_flag(const std::string& name) const {
+
+	std::string n = common::to_upper(std::as_const(name));
+
+	for ( const auto& [k, v] : this -> flags )
+		if ( v.active && common::to_upper(std::as_const(v.name)) == n )
+			return true;
+
+	return false;
+}
+
 #if IPV6 != 0
 
 bool netinfo::device::addr6::operator ==(const netinfo::device::addr6& other) const {
@@ -90,7 +114,7 @@ static std::string clean_up(const std::string& line) {
 		if ( common::whitespace.find_first_of(ch) != std::string::npos )
 			ch = ' ';
 
-		if ( ch == ' ' && r.back() == ' ' )
+		if ( ch == ' ' && ( r.empty() || r.back() == ' ' ))
 			continue;
 
 		r += ch;
@@ -498,17 +522,24 @@ std::map<std::string, netinfo::device> netinfo::get_devices() {
 				logger::error["netinfo"] << "failed to get netmask for " << ifa -> ifa_name << std::endl;
 			else {
 				ipv4.netmask = inet_ntoa(((sockaddr_in*)&ifr.ifr_netmask) -> sin_addr);
-				long double logval = static_cast<long double>(((sockaddr_in*)&ifr.ifr_netmask) -> sin_addr.s_addr);
-				int netlen = (int) std::rint(std::log2f(logval) / std::log2f(2.0));
+				// CIDR prefix length = number of set bits in the netmask. counting
+				// bits is byte-order independent and correct for every mask; the
+				// old log2() approach only happened to work for /8, /16 and /24.
+				uint32_t mask = ((sockaddr_in*)&ifr.ifr_netmask) -> sin_addr.s_addr;
+				int netlen = 0;
+				while ( mask ) { netlen += mask & 1u; mask >>= 1; }
 				ipv4.cidrmask = std::to_string(netlen);
 			}
 
-			if ( ipv4.has_broadcast ) {
+			// fetch the broadcast address whenever the interface actually has
+			// one (a zero address means it does not, e.g. loopback / p-t-p).
+			if ( ioctl(sock, SIOCGIFBRDADDR, &ifr) >= 0 ) {
 
-				if ( ioctl(sock, SIOCGIFBRDADDR, &ifr) < 0 )
-					logger::error["netinfo"] << "failed to get broadcast address for " << ifa -> ifa_name << std::endl;
-				else
-					ipv4.broadcast = inet_ntoa(((sockaddr_in*)&ifr.ifr_broadaddr) -> sin_addr);
+				std::string bc = inet_ntoa(((sockaddr_in*)&ifr.ifr_broadaddr) -> sin_addr);
+				if ( !bc.empty() && bc != "0.0.0.0" ) {
+					ipv4.broadcast = bc;
+					ipv4.has_broadcast = true;
+				}
 			}
 
 			if ( index4 == -1 )
@@ -585,6 +616,22 @@ std::map<std::string, netinfo::device> netinfo::get_devices() {
 	return devices;
 }
 
+netinfo::device netinfo::get_device(const std::string& name) {
+
+	std::map<std::string, netinfo::device> devices = netinfo::get_devices();
+
+	if ( auto it = devices.find(name); it != devices.end())
+		return it -> second;
+
+	throws << "interface " << name << " not found" << std::endl;
+}
+
+bool netinfo::has_device(const std::string& name) {
+
+	std::map<std::string, netinfo::device> devices = netinfo::get_devices();
+	return devices.find(name) != devices.end();
+}
+
 
 std::ostream& operator <<(std::ostream& os, const netinfo::device::addr4& a) {
 
@@ -618,12 +665,12 @@ std::ostream& operator <<(std::ostream& os, const netinfo::device::addr6& a) {
 
 std::ostream& operator <<(std::ostream& os, const netinfo::device& d) {
 
-	os << d.name << "\tlink/" << d.encap << " state " << d.operstate << " mtu " << d.mtu;
+	os << d.name << " link/" << d.encap << " state " << d.operstate << " mtu " << d.mtu;
 
 	if ( !d.hwaddr.empty())
 		os << " hwaddr " << d.hwaddr;
 
-	os << "\n  \tflags:";
+	os << "\n  flags:";
 	for ( const auto& f : d.flags )
 		if ( f.second )
 			os << " " << f.second.name;
@@ -633,7 +680,7 @@ std::ostream& operator <<(std::ostream& os, const netinfo::device& d) {
 		if ( a.addr.empty())
 			continue;
 
-		os << "\n  \t" << a;
+		os << "\n  " << a;
 	}
 
 #if IPV6 != 0
@@ -642,14 +689,14 @@ std::ostream& operator <<(std::ostream& os, const netinfo::device& d) {
 		if ( a.addr.empty())
 			continue;
 
-		os << "\n  \t" << a;
+		os << "\n  " << a;
 	}
 #endif
 
-	os << "\n  \tRX packets: " << d.rx.packets << " errors: " << d.rx.errors << " dropped: " << d.rx.dropped;
-	os << "\n  \tTX packets: " << d.tx.packets << " errors: " << d.tx.errors << " dropped: " << d.tx.dropped;
+	os << "\n  RX packets: " << d.rx.packets << " errors: " << d.rx.errors << " dropped: " << d.rx.dropped;
+	os << "\n  TX packets: " << d.tx.packets << " errors: " << d.tx.errors << " dropped: " << d.tx.dropped;
 
-	os << "\n  \tRX bytes: " << d.rx.bytes;
+	os << "\n  RX bytes: " << d.rx.bytes;
 
 	if ( double gib = d.rx.GiB(); gib > 0 ) os << " (" << std::setprecision(1) << std::fixed << gib << " GiB)";
 	else if ( double mib = d.rx.MiB(); mib > 0 ) os << " (" << std::setprecision(1) << std::fixed << mib << " MiB)";

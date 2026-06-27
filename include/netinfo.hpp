@@ -101,9 +101,16 @@ namespace netinfo {
 
 		stats rx;
 		stats tx;
+
+		// convenience queries (the flags map is still public for direct access)
+		bool up() const;				// operstate == "UP"
+		bool has_flag(const std::string& name) const;	// e.g. has_flag("RUNNING")
+		bool has_flag(unsigned long int id) const;	// e.g. has_flag(IFF_RUNNING)
 	};
 
 	std::map<std::string, device> get_devices();
+	device get_device(const std::string& name);		// one interface; throws if not found
+	bool has_device(const std::string& name);
 
 } // end of namespace netinfo
 
